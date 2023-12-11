@@ -1,1 +1,1 @@
-# paletteburg.github.io
+# paletteburg.io
