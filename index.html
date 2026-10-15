@@ -57,6 +57,14 @@
     button:hover {
         background-color: #ddd;
     }
+
+    .blink {
+  animation: blink 1s steps(2, start) infinite;
+    }
+
+    @keyframes blink {
+    to { visibility: hidden; }
+    }
 </style>
 
 <body>
@@ -68,7 +76,7 @@
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             background: rgba(0, 0, 0, 0.7); color: white; cursor: pointer;">
             <h1 style="font-size: 32px; margin-bottom: 24px;">Paletteburg</h1>
-            <p style="font-size: 14px;">Press any key or click to start</p>
+            <p class="blink" style="font-size: 14px;">Press any key or click to start</p>
         </div>
 
         <div id="overlappingDiv" style="
