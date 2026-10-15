@@ -114,10 +114,17 @@ function initBattle() {
 
 function animateBattle() {
   battleAnimationId = window.requestAnimationFrame(animateBattle);
+
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.fillStyle = "black";
+  c.fillRect(0, 0, canvas.width, canvas.height);
+  c.setTransform(
+    battleScale, 0, 0, battleScale,
+    (canvas.width - BATTLE_WIDTH * battleScale) / 2,
+    (canvas.height - BATTLE_HEIGHT * battleScale) / 2
+  );
+
   battleBackground.draw();
-
-  console.log(battleAnimationId);
-
   renderedSprites.forEach((sprite) => {
     sprite.draw();
   });

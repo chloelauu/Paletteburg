@@ -1,8 +1,28 @@
 const canvas = document.querySelector("canvas");
 const c = canvas.getContext("2d");
 
-canvas.width = 1024;
-canvas.height = 576;
+const ZOOM = 1.2;
+const CAMERA_SMOOTHING = 0.1;
+const BATTLE_WIDTH = 1024;
+const BATTLE_HEIGHT = 576;
+
+let worldScale = 1;
+let battleScale = 1;
+
+function resizeCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(window.innerWidth * dpr);
+  canvas.height = Math.round(window.innerHeight * dpr);
+  worldScale = Math.max(1, Math.round(dpr * ZOOM));
+
+  const fit = Math.min(window.innerWidth / BATTLE_WIDTH, window.innerHeight / BATTLE_HEIGHT);
+  battleScale = fit * dpr;
+  document.documentElement.style.setProperty("--battle-scale", fit);
+
+  c.imageSmoothingEnabled = false;
+}
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
 
 const collisionsMap = [];
 for (let i = 0; i < collisions.length; i += 70) {
@@ -14,11 +34,10 @@ for (let i = 0; i < battleZonesData.length; i += 70) {
   battleZonesMap.push(battleZonesData.slice(i, i + 70));
 }
 
+const MAP_WIDTH = collisionsMap[0].length * Boundary.width;
+const MAP_HEIGHT = collisionsMap.length * Boundary.height;
+
 const boundaries = [];
-const offset = {
-  x: -255,
-  y: -420,
-};
 
 collisionsMap.forEach((row, i) => {
   row.forEach((symbol, j) => {
@@ -26,8 +45,8 @@ collisionsMap.forEach((row, i) => {
       boundaries.push(
         new Boundary({
           position: {
-            x: j * Boundary.width + offset.x,
-            y: i * Boundary.height + offset.y,
+            x: j * Boundary.width,
+            y: i * Boundary.height,
           },
         })
       );
@@ -42,8 +61,8 @@ battleZonesMap.forEach((row, i) => {
       battleZones.push(
         new Boundary({
           position: {
-            x: j * Boundary.width + offset.x,
-            y: i * Boundary.height + offset.y,
+            x: j * Boundary.width,
+            y: i * Boundary.height,
           },
         })
       );
@@ -70,8 +89,8 @@ playerRightImage.src = "./img/PlayerRight.png";
 
 const player = new Sprite({
   position: {
-    x: canvas.width / 2 - 192 / 4 / 2,
-    y: canvas.height / 2 - 68 / 2,
+    x: 743,
+    y: 674,
   },
   image: playerDownImage,
   frames: {
@@ -87,18 +106,12 @@ const player = new Sprite({
 });
 
 const background = new Sprite({
-  position: {
-    x: offset.x,
-    y: offset.y,
-  },
+  position: { x: 0, y: 0 },
   image: image,
 });
 
 const foreground = new Sprite({
-  position: {
-    x: offset.x,
-    y: offset.y,
-  },
+  position: { x: 0, y: 0 },
   image: foregroundImage,
 });
 
@@ -117,7 +130,31 @@ const keys = {
   },
 };
 
-const movables = [background, ...boundaries, foreground, ...battleZones];
+const camera = { x: 0, y: 0, ready: false };
+
+function clampCamera(value, viewSize, mapSize) {
+  if (viewSize >= mapSize) return (mapSize - viewSize) / 2;
+  return Math.min(Math.max(value, 0), mapSize - viewSize);
+}
+
+function updateCamera() {
+  if (!player.width) return;
+
+  const viewWidth = canvas.width / worldScale;
+  const viewHeight = canvas.height / worldScale;
+
+  const targetX = clampCamera(player.position.x + player.width / 2 - viewWidth / 2, viewWidth, MAP_WIDTH);
+  const targetY = clampCamera(player.position.y + player.height / 2 - viewHeight / 2, viewHeight, MAP_HEIGHT);
+
+  if (!camera.ready) {
+    camera.x = targetX;
+    camera.y = targetY;
+    camera.ready = true;
+  }
+
+  camera.x += (targetX - camera.x) * CAMERA_SMOOTHING;
+  camera.y += (targetY - camera.y) * CAMERA_SMOOTHING;
+}
 
 function rectangularCollision({ rectangle1, rectangle2 }) {
   return (
@@ -134,6 +171,15 @@ const battle = {
 
 function animate() {
   const animationId = window.requestAnimationFrame(animate);
+  updateCamera();
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.fillStyle = "black";
+  c.fillRect(0, 0, canvas.width, canvas.height);
+  c.setTransform(
+    worldScale, 0, 0, worldScale,
+    -Math.round(camera.x * worldScale),
+    -Math.round(camera.y * worldScale)
+  );
   background.draw();
   boundaries.forEach((boundary) => {
     boundary.draw();
@@ -229,10 +275,7 @@ function animate() {
       }
     }
 
-    if (moving)
-      movables.forEach((movable) => {
-        movable.position.y += 3;
-      });
+    if (moving) player.position.y -= 3;
   } else if (keys.a.pressed && lastKey === "a") {
     player.animate = true;
     player.image = player.sprites.left;
@@ -256,10 +299,7 @@ function animate() {
       }
     }
 
-    if (moving)
-      movables.forEach((movable) => {
-        movable.position.x += 3;
-      });
+    if (moving) player.position.x -= 3;
   } else if (keys.s.pressed && lastKey === "s") {
     player.animate = true;
     player.image = player.sprites.down;
@@ -283,10 +323,7 @@ function animate() {
       }
     }
 
-    if (moving)
-      movables.forEach((movable) => {
-        movable.position.y -= 3;
-      });
+    if (moving) player.position.y += 3;
   } else if (keys.d.pressed && lastKey === "d") {
     player.animate = true;
     player.image = player.sprites.right;
@@ -310,10 +347,7 @@ function animate() {
       }
     }
 
-    if (moving)
-      movables.forEach((movable) => {
-        movable.position.x -= 3;
-      });
+    if (moving) player.position.x += 3;
   }
 }
 // animate()
@@ -357,10 +391,19 @@ window.addEventListener("keyup", (e) => {
   }
 });
 
-let clicked = false;
-addEventListener("click", () => {
-  if (!clicked) {
-    audio.Map.play();
-    clicked = true;
-  }
-});
+let musicStarted = false;
+
+function startGame() {
+  if (musicStarted) return;
+  musicStarted = true;
+  document.querySelector("#startScreen").style.display = "none";
+  audio.Map.play();
+}
+
+addEventListener("click", startGame);
+addEventListener("keydown", startGame);
+
+// stop trackpad pinch / Ctrl+scroll from zooming the browser
+window.addEventListener("wheel", (e) => {
+  if (e.ctrlKey) e.preventDefault();
+}, { passive: false });
